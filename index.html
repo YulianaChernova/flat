@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="uk">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -51,8 +51,8 @@ let db=null;try{db=JSON.parse(localStorage.getItem(K))}catch(e){}
 if(!db||!db.flats)db={flats:[],cur:null};
 const now=new Date();let ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 const open=new Set();
-const PRE=[['Газ','meter'],['Доставка газа','vol'],['Вода','meter'],['Электроэнергия','meter'],['Вывоз мусора','fix'],['Коммунальные услуги','fix'],['Отопление','meter'],['Домофон','fix']];
-const TYPES={meter:'по счётчику',vol:'объём × тариф',fix:'фиксированная сумма'};
+const PRE=[['Газ','meter'],['Доставка газу','vol'],['Вода','meter'],['Електроенергія','meter'],['Вивезення сміття','fix'],['Комунальні послуги','fix'],['Опалення','meter'],['Домофон','fix']];
+const TYPES={meter:'за лічильником',vol:'обсяг × тариф',fix:'фіксована сума'};
 const uid=()=>Math.random().toString(36).slice(2,9);
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -60,7 +60,7 @@ const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));r
 const f2=n=>(Math.round(n*100)/100).toLocaleString('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const r5=n=>n==null?'':String(+(+n).toFixed(5));
 const addM=(m,d)=>{let [y,x]=m.split('-').map(Number);x+=d;y+=Math.floor((x-1)/12);x=((x-1)%12+12)%12+1;return y+'-'+String(x).padStart(2,'0')};
-const label=m=>{const [y,x]=m.split('-').map(Number);const s=new Date(y,x-1,1).toLocaleDateString('ru',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1)};
+const label=m=>{const [y,x]=m.split('-').map(Number);const s=new Date(y,x-1,1).toLocaleDateString('uk',{month:'long',year:'numeric'}).replace(/\s*р\.$/,'');return s.charAt(0).toUpperCase()+s.slice(1)};
 const flat=()=>db.flats.find(f=>f.id===db.cur);
 const mget=(fl,sv,m)=>(fl.months[m]||{})[sv.id]||{};
 const priceOf=(sv,m)=>{let v=null;for(const p of sv.prices)if(p.from<=m)v=p.v;return v};
@@ -92,48 +92,48 @@ const ro=(lab,v)=>`<label>${lab}<div class="ro">${v}</div></label>`;
 function card(fl,sv){
   const c=calc(fl,sv,ym);let g='';
   if(sv.type==='meter'){
-    g=field(sv,'Предыдущее','prev',c.prev,'введите в 1-й раз')+field(sv,'Текущее','cur',c.cur,'')
-     +ro('Разница',c.diff==null?'—':f2(c.diff))+field(sv,'Цена, грн','price',c.price,'')
-     +field(sv,'Абонплата, грн','abon',c.abon,'0')+ro('Начислено, грн',c.ch==null?'—':f2(c.ch));
+    g=field(sv,'Попереднє','prev',c.prev,'введіть вперше')+field(sv,'Поточне','cur',c.cur,'')
+     +ro('Різниця',c.diff==null?'—':f2(c.diff))+field(sv,'Ціна, грн','price',c.price,'')
+     +field(sv,'Абонплата, грн','abon',c.abon,'0')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
   }else if(sv.type==='vol'){
-    g=field(sv,'Объём','vol',c.vol,'')+field(sv,'Тариф, грн','price',c.price,'')+ro('Начислено, грн',c.ch==null?'—':f2(c.ch));
+    g=field(sv,'Обсяг','vol',c.vol,'')+field(sv,'Тариф, грн','price',c.price,'')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
   }else{
-    g=field(sv,'Сумма, грн','price',c.price,'')+ro('Начислено, грн',c.ch==null?'—':f2(c.ch));
+    g=field(sv,'Сума, грн','price',c.price,'')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
   }
   let w='';
-  if(c.diff!=null&&c.diff<0)w+='<div class="warn">Текущее показание меньше предыдущего</div>';
-  if(sv.type==='meter'&&c.cur!=null&&c.prev==null)w+='<div class="warn">Первый месяц: введите предыдущее показание</div>';
-  if(c.rec!=null&&c.ch!=null&&Math.abs(c.rec-c.ch)>0.01)w+=`<div class="warn">Расхождение с квитанцией: ${f2(c.rec-c.ch)} грн</div>`;
+  if(c.diff!=null&&c.diff<0)w+='<div class="warn">Поточне показання менше за попереднє</div>';
+  if(sv.type==='meter'&&c.cur!=null&&c.prev==null)w+='<div class="warn">Перший місяць: введіть попереднє показання</div>';
+  if(c.rec!=null&&c.ch!=null&&Math.abs(c.rec-c.ch)>0.01)w+=`<div class="warn">Розбіжність із квитанцією: ${f2(c.rec-c.ch)} грн</div>`;
   const sel=Object.keys(TYPES).map(t=>`<option value="${t}"${t===sv.type?' selected':''}>${TYPES[t]}</option>`).join('');
   const ed=(lab,f)=>`<label class="w">${lab}<input data-e="${f}" data-s="${sv.id}" value="${esc(sv[f])}"></label>`;
   return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="sum">${c.ch==null?'—':f2(c.pay)}</span></div>
   <div class="g">${g}</div>${w}
-  <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Долг, оплата, сверка, реквизиты</summary>
-  <div class="g">${field(sv,'Остаток (долг +, переплата −)','saldo',d0(c.saldo),'0')}${field(sv,'Оплачено, грн','paid',d0(c.paid),'0')}
-  ${field(sv,'По квитанции, грн','receipt',c.rec,'')}${ro('К оплате, грн',f2(c.pay))}
-  <label class="w">Название услуги<input data-e="name" data-s="${sv.id}" value="${esc(sv.name)}"></label>
+  <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Борг, оплата, звірка, реквізити</summary>
+  <div class="g">${field(sv,'Залишок (борг +, переплата −)','saldo',d0(c.saldo),'0')}${field(sv,'Сплачено, грн','paid',d0(c.paid),'0')}
+  ${field(sv,'За квитанцією, грн','receipt',c.rec,'')}${ro('До сплати, грн',f2(c.pay))}
+  <label class="w">Назва послуги<input data-e="name" data-s="${sv.id}" value="${esc(sv.name)}"></label>
   <label class="w">Тип<select data-e="type" data-s="${sv.id}">${sel}</select></label>
-  ${ed('Получатель','payee')}${ed('Лицевой счёт','acc')}${ed('IBAN','iban')}</div>
-  <button class="btn d" data-a="delsvc" data-i="${sv.id}">Удалить услугу</button></details></div>`;
+  ${ed('Отримувач','payee')}${ed('Особовий рахунок','acc')}${ed('IBAN','iban')}</div>
+  <button class="btn d" data-a="delsvc" data-i="${sv.id}">Видалити послугу</button></details></div>`;
 }
 const d0=v=>v?v:null;
 
 function render(){
   const fl=flat();
   let h=`<div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button></div>`;
-  if(!fl){app.innerHTML=h+'<p class="mu">Нажмите «+ Квартира» и введите название и адрес.</p>';return}
+  if(!fl){app.innerHTML=h+'<p class="mu">Натисніть «+ Квартира» і введіть назву та адресу.</p>';return}
   h+=`<div class="mu">${esc(fl.addr)}</div>
-  <div class="mn"><button data-a="pm" aria-label="Предыдущий месяц">‹</button><input type="month" id="mp" value="${ym}" aria-label="Месяц"><button data-a="nm" aria-label="Следующий месяц">›</button></div>
+  <div class="mn"><button data-a="pm" aria-label="Попередній місяць">‹</button><input type="month" id="mp" value="${ym}" aria-label="Місяць"><button data-a="nm" aria-label="Наступний місяць">›</button></div>
   <div class="mu" style="text-align:center">${label(ym)}</div>`;
   let sc=0,sp=0;
   for(const sv of fl.svcs){const c=calc(fl,sv,ym);if(c.ch!=null)sc+=c.ch;sp+=c.pay;h+=card(fl,sv)}
-  h+=`<div class="tot"><div><span>Начислено за месяц</span><span>${f2(sc)} грн</span></div><div class="big"><span>К оплате</span><span>${f2(sp)} грн</span></div></div>`;
-  h+=`<details${open.has('add')?' open':''} data-o="add"><summary>Добавить услугу</summary><div class="g"><label>Название<input id="ns"></label><label>Тип<select id="nt">${Object.keys(TYPES).map(t=>`<option value="${t}">${TYPES[t]}</option>`).join('')}</select></label></div><button class="btn" data-a="addsvc">Добавить</button></details>`;
+  h+=`<div class="tot"><div><span>Нараховано за місяць</span><span>${f2(sc)} грн</span></div><div class="big"><span>До сплати</span><span>${f2(sp)} грн</span></div></div>`;
+  h+=`<details${open.has('add')?' open':''} data-o="add"><summary>Додати послугу</summary><div class="g"><label>Назва<input id="ns"></label><label>Тип<select id="nt">${Object.keys(TYPES).map(t=>`<option value="${t}">${TYPES[t]}</option>`).join('')}</select></label></div><button class="btn" data-a="addsvc">Додати</button></details>`;
   const ms=Object.keys(fl.months).sort().reverse().slice(0,12);
-  if(ms.length){h+='<h3>Итоги по месяцам</h3>'+ms.map(m=>{let t=0;for(const sv of fl.svcs){const c=calc(fl,sv,m);if(c.ch!=null)t+=c.ch}return `<div class="row"><span>${label(m)}</span><span>${f2(t)} грн</span></div>`}).join('')}
-  h+=`<h3>Квартира и данные</h3><button class="btn" data-a="editflat">Изменить название и адрес</button><button class="btn d" data-a="delflat">Удалить квартиру</button>
-  <p class="mu">Данные хранятся на этом телефоне. Для резервной копии или переноса на другой телефон:</p>
-  <textarea id="bk" aria-label="Копия данных"></textarea><button class="btn" data-a="exp">Показать копию</button><button class="btn" data-a="imp">Загрузить из текста</button>`;
+  if(ms.length){h+='<h3>Підсумки за місяцями</h3>'+ms.map(m=>{let t=0;for(const sv of fl.svcs){const c=calc(fl,sv,m);if(c.ch!=null)t+=c.ch}return `<div class="row"><span>${label(m)}</span><span>${f2(t)} грн</span></div>`}).join('')}
+  h+=`<h3>Квартира та дані</h3><button class="btn" data-a="editflat">Змінити назву й адресу</button><button class="btn d" data-a="delflat">Видалити квартиру</button>
+  <p class="mu">Дані зберігаються на цьому телефоні. Для резервної копії або перенесення на інший телефон:</p>
+  <textarea id="bk" aria-label="Копія даних"></textarea><button class="btn" data-a="exp">Показати копію</button><button class="btn" data-a="imp">Завантажити з тексту</button>`;
   app.innerHTML=h;
 }
 
@@ -160,8 +160,8 @@ app.addEventListener('click',e=>{
   const a=b.dataset.a,fl=flat();
   if(a==='flat'){db.cur=b.dataset.i;save();render()}
   else if(a==='addflat'){
-    const name=(prompt('Название квартиры (например, Николаев)')||'').trim();if(!name)return;
-    const addr=(prompt('Адрес')||'').trim();
+    const name=(prompt('Назва квартири (наприклад, Миколаїв)')||'').trim();if(!name)return;
+    const addr=(prompt('Адреса')||'').trim();
     const f={id:uid(),name,addr,months:{},svcs:PRE.map(p=>({id:uid(),name:p[0],type:p[1],payee:'',acc:'',iban:'',prices:[]}))};
     db.flats.push(f);db.cur=f.id;save();render();
   }
@@ -172,19 +172,19 @@ app.addEventListener('click',e=>{
     fl.svcs.push({id:uid(),name,type:document.getElementById('nt').value,payee:'',acc:'',iban:'',prices:[]});
     save();render();
   }
-  else if(a==='delsvc'){if(confirm('Удалить услугу и все её данные по месяцам?')){fl.svcs=fl.svcs.filter(s=>s.id!==b.dataset.i);save();render()}}
+  else if(a==='delsvc'){if(confirm('Видалити послугу та всі її дані по місяцях?')){fl.svcs=fl.svcs.filter(s=>s.id!==b.dataset.i);save();render()}}
   else if(a==='editflat'){
-    const n=prompt('Название квартиры',fl.name);if(n&&n.trim())fl.name=n.trim();
-    const ad=prompt('Адрес',fl.addr);if(ad!=null)fl.addr=ad.trim();
+    const n=prompt('Назва квартири',fl.name);if(n&&n.trim())fl.name=n.trim();
+    const ad=prompt('Адреса',fl.addr);if(ad!=null)fl.addr=ad.trim();
     save();render();
   }
-  else if(a==='delflat'){if(confirm('Удалить квартиру «'+fl.name+'» со всеми данными?')){db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;save();render()}}
+  else if(a==='delflat'){if(confirm('Видалити квартиру «'+fl.name+'» з усіма даними?')){db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;save();render()}}
   else if(a==='exp'){const t=document.getElementById('bk');t.value=JSON.stringify(db);t.focus();t.select()}
   else if(a==='imp'){
     try{const n=JSON.parse(document.getElementById('bk').value);
       if(!n.flats)throw 0;
-      if(confirm('Заменить все данные на этом телефоне данными из текста?')){db=n;save();render()}
-    }catch(x){alert('Не удалось прочитать данные. Вставьте текст копии целиком.')}
+      if(confirm('Замінити всі дані на цьому телефоні даними з тексту?')){db=n;save();render()}
+    }catch(x){alert('Не вдалося прочитати дані. Вставте текст копії повністю.')}
   }
 });
 
