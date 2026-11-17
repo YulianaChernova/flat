@@ -56,7 +56,7 @@ h3{font-size:15px;margin:18px 0 4px}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {getFirestore,FieldPath,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {getFirestore,FieldPath,deleteField,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const fb=initializeApp({apiKey:"AIzaSyDBvPU7IJMnp7dMXsD7uFu8cU8exOpaEVM",authDomain:"kvartplata-8ca26.firebaseapp.com",projectId:"kvartplata-8ca26",storageBucket:"kvartplata-8ca26.firebasestorage.app",messagingSenderId:"888585593001",appId:"1:888585593001:web:a4cb9d0299652d8e8d09b8"});
 const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
 const TK='kv_theme';
@@ -81,6 +81,17 @@ onAuthStateChanged(auth,u=>{
   if(!u){db.flats=[];db.cur=null;ready=true;render();return}
   unsub=onSnapshot(query(collection(fs,'flats'),where('members','array-contains',myMail())),sn=>{
     db.flats=sn.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    db.flats.forEach(f=>{
+      const bad=Object.keys(f.months||{}).filter(k=>k.includes('`'));if(!bad.length)return;
+      const args=[];
+      for(const k of bad){
+        const m2=k.replace(/`/g,''),good=f.months[m2]||{},old=f.months[k]||{},mg={...good};
+        for(const id in old)mg[id]={...old[id],...(good[id]||{})};
+        f.months[m2]=mg;delete f.months[k];
+        args.push(new FieldPath('months',m2),mg,new FieldPath('months',k),deleteField());
+      }
+      updateDoc(doc(fs,'flats',f.id),...args).catch(fail);
+    });
     if(!db.flats.some(f=>f.id===db.cur))db.cur=db.flats[0]?db.flats[0].id:null;
     ready=true;const a=document.activeElement;
     if(!(a&&app.contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)))render();
