@@ -49,6 +49,10 @@ h3{font-size:15px;margin:18px 0 4px}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
 .dlg{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
 .ic{border:0;background:none;font-size:20px;padding:4px 10px;color:var(--bad)}
+.hd{position:relative;overflow:hidden;border-radius:14px;padding:4px 10px 10px;margin:8px 0;border:1px solid var(--bd)}
+.hd>*:not(.deco){position:relative;z-index:1}
+.deco{position:absolute;inset:-10%;z-index:0;font-size:26px;line-height:1.6;letter-spacing:12px;opacity:.3;overflow:hidden;pointer-events:none;user-select:none;word-break:break-all;transform:rotate(-6deg)}
+.pill{display:inline-block;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:2px 10px;margin:4px 0}
 </style>
 </head>
 <body>
@@ -62,6 +66,8 @@ const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
 const TK='kv_theme';
 const setTheme=t=>{document.documentElement.dataset.theme=t;try{localStorage.setItem(TK,t)}catch(e){}};
 {let t='light';try{t=localStorage.getItem(TK)||'light'}catch(e){}setTheme(t)}
+const MV={1:['❄️','120,170,220','❄️ ⛄ ❄️ ✨ '],2:['💗','235,130,170','💗 💌 💗 🌹 '],3:['🌷','150,200,90','🌷 🌱 🌷 🐣 '],4:['🌸','240,150,190','🌸 🦋 🌸 ☔ '],5:['🌼','230,200,60','🌼 🐝 🌼 🌿 '],6:['☀️','250,190,50','☀️ 🍓 ☀️ 🍒 '],7:['🍉','230,90,90','🍉 🌴 🍉 🍦 '],8:['🌻','240,170,40','🌻 🌾 🌻 🌻 '],9:['🍎','190,70,60','🍎 📚 🍏 📚 '],10:['🎃','240,130,30','🎃 🕷️ 🎃 🕸️ 🦇 '],11:['🍁','190,100,40','🍁 🍂 🍁 🍄 '],12:['🎄','60,140,80','🎄 ❄️ 🎁 ⭐ ']};
+const hdStyle=()=>{const r=MV[+ym.slice(5)][1];return ` style="background:linear-gradient(135deg,rgba(${r},.32),rgba(${r},.10))"`};
 const db={flats:[],cur:null};
 let me=null,ready=false,loginMsg='',unsub=null,accOpen=false;
 const fail=e=>alert('Не вдалося зберегти: '+(e.code||e.message));
@@ -176,11 +182,11 @@ function render(){
   if(!ready){app.innerHTML='<p class="mu">Завантаження…</p>';return}
   if(!me){loginView();return}
   const fl=flat();
-  let h=`<div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button><button class="tab" data-a="theme" aria-label="Тема">◐</button></div>`;
-  if(!fl){app.innerHTML=h+'<p class="mu">Натисніть «+ Квартира» і введіть назву та адресу.</p>';return}
-  h+=`<div class="mu">${esc(fl.addr)}</div>
+  let h=`<div class="hd"${hdStyle()}><div class="deco" aria-hidden="true">${MV[+ym.slice(5)][2].repeat(14)}</div><div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button><button class="tab" data-a="theme" aria-label="Тема">◐</button></div>`;
+  if(!fl){app.innerHTML=h+'</div><p class="mu">Натисніть «+ Квартира» і введіть назву та адресу.</p>';return}
+  h+=`<div><span class="pill mu">${esc(fl.addr)}</span></div>
   <div class="mn"><button data-a="pm" aria-label="Попередній місяць">‹</button><input type="month" id="mp" value="${ym}" aria-label="Місяць"><button data-a="nm" aria-label="Наступний місяць">›</button></div>
-  <div class="mu" style="text-align:center">${label(ym)}</div>`;
+  <div style="text-align:center"><span class="pill"><b>${MV[+ym.slice(5)][0]} ${label(ym)}</b></span></div></div>`;
   let sc=0,sp=0,sd=0,sr=0;
   for(const sv of fl.svcs){const c=calc(fl,sv,ym);if(c.ch!=null)sc+=c.ch;sp+=c.pay;sd+=c.paid;if(c.paid&&c.ch!=null)sr+=c.paid-c.ch;h+=card(fl,sv)}
   h+=`<div class="tot"><div><span>Нараховано за місяць</span><span>${f2(sc)} грн</span></div><div class="gr"><span>Сплачу (мої суми)</span><span>${f2(sd)} грн</span></div>${sd?`<div class="sm"><span>Округлення (сплачу − нараховано)</span><span>${sr>0?'+':''}${f2(sr)} грн</span></div>`:''}<div class="big"><span>До сплати</span><span>${f2(sp)} грн</span></div></div>`;
