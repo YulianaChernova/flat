@@ -41,6 +41,10 @@ summary{color:var(--ac);font-size:14px;padding:4px 0}
 textarea{height:90px;font-size:13px}
 h3{font-size:15px;margin:18px 0 4px}
 .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.dlg{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+.ic{border:0;background:none;font-size:20px;padding:4px 10px;color:var(--bad)}
+.row{align-items:center}
 </style>
 </head>
 <body>
@@ -52,10 +56,16 @@ import {getFirestore,collection,doc,query,where,onSnapshot,setDoc,updateDoc,dele
 const fb=initializeApp({apiKey:"AIzaSyDBvPU7IJMnp7dMXsD7uFu8cU8exOpaEVM",authDomain:"kvartplata-8ca26.firebaseapp.com",projectId:"kvartplata-8ca26",storageBucket:"kvartplata-8ca26.firebasestorage.app",messagingSenderId:"888585593001",appId:"1:888585593001:web:a4cb9d0299652d8e8d09b8"});
 const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
 const db={flats:[],cur:null};
-let me=null,ready=false,loginMsg='',unsub=null;
+let me=null,ready=false,loginMsg='',unsub=null,accOpen=false;
 const fail=e=>alert('Не вдалося зберегти: '+(e.code||e.message));
 const push=(fl,u)=>updateDoc(doc(fs,'flats',fl.id),u).catch(fail);
 const myMail=()=>me.email.toLowerCase();
+function accView(fl){
+  const ms=fl.members||[];
+  return `<div class="ov"><div class="dlg"><b>Доступ до квартири «${esc(fl.name)}»</b><div style="margin:8px 0">${ms.map(m=>`<div class="row"><span>${esc(m)}${m===myMail()?' (ви)':''}</span>${m===myMail()?'':`<button class="ic" data-a="accdel" data-i="${esc(m)}" aria-label="Видалити">🗑</button>`}</div>`).join('')}</div>
+  <label>Додати пошту<input id="ae" type="email" autocapitalize="none" placeholder="name@gmail.com"></label>
+  <button class="btn" data-a="accadd">+ Додати</button><button class="btn" data-a="accx">Закрити</button></div></div>`;
+}
 function loginView(){app.innerHTML=`<h3>Квартплата</h3><div class="card"><div class="g"><label class="w">Пошта<input id="em" type="email" autocomplete="username" autocapitalize="none"></label><label class="w">Пароль<input id="pw" type="password" autocomplete="current-password"></label></div><button class="btn" data-a="login">Увійти</button><div class="warn">${esc(loginMsg)}</div></div>`}
 onAuthStateChanged(auth,u=>{
   if(unsub){unsub();unsub=null}
@@ -154,6 +164,7 @@ function render(){
   h+=`<h3>Квартира та дані</h3><button class="btn" data-a="acc">Доступ: ${(fl.members||[]).length}</button><button class="btn" data-a="editflat">Змінити назву й адресу</button><button class="btn d" data-a="delflat">Видалити квартиру</button>
   <p class="mu">Дані зберігаються в хмарі й однакові на всіх пристроях. Копія потрібна для резерву або для перенесення даних зі старої версії:</p>
   <textarea id="bk" aria-label="Копія даних"></textarea><button class="btn" data-a="exp">Показати копію</button><button class="btn" data-a="imp">Завантажити з тексту</button><div><button class="btn d" data-a="out">Вийти (${esc(me.email)})</button></div>`;
+  if(accOpen)h+=accView(fl);
   app.innerHTML=h;
 }
 
@@ -202,11 +213,17 @@ app.addEventListener('click',e=>{
   else if(a==='exp'){const t=document.getElementById('bk');t.value=JSON.stringify(db);t.focus();t.select()}
   else if(a==='login'){signInWithEmailAndPassword(auth,document.getElementById('em').value.trim(),document.getElementById('pw').value).catch(()=>{loginMsg='Невірна пошта або пароль';render()})}
   else if(a==='out'){signOut(auth)}
-  else if(a==='acc'){
-    const v=prompt('Хто має доступ до квартири (пошти через кому)',(fl.members||[]).join(', '));if(v==null)return;
-    const m=[...new Set(v.split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(x=>x.includes('@')))];
-    if(!m.includes(myMail()))m.push(myMail());
-    fl.members=m;push(fl,{members:m});render();
+  else if(a==='acc'){accOpen=true;render()}
+  else if(a==='accx'){accOpen=false;render()}
+  else if(a==='accadd'){
+    const e=document.getElementById('ae').value.trim().toLowerCase();
+    if(!/^\S+@\S+\.\S+$/.test(e)){alert('Введіть правильну пошту');return}
+    const m=fl.members||[];if(m.includes(e)){alert('Ця пошта вже є в списку');return}
+    fl.members=[...m,e];push(fl,{members:fl.members});render();
+  }
+  else if(a==='accdel'){
+    const e=b.dataset.i;
+    if(confirm('Прибрати доступ для '+e+'?')){fl.members=(fl.members||[]).filter(x=>x!==e);push(fl,{members:fl.members});render()}
   }
   else if(a==='imp'){
     try{const n=JSON.parse(document.getElementById('bk').value);
