@@ -52,13 +52,14 @@ h3{font-size:15px;margin:18px 0 4px}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {getFirestore,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {getFirestore,FieldPath,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const fb=initializeApp({apiKey:"AIzaSyDBvPU7IJMnp7dMXsD7uFu8cU8exOpaEVM",authDomain:"kvartplata-8ca26.firebaseapp.com",projectId:"kvartplata-8ca26",storageBucket:"kvartplata-8ca26.firebasestorage.app",messagingSenderId:"888585593001",appId:"1:888585593001:web:a4cb9d0299652d8e8d09b8"});
 const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
 const db={flats:[],cur:null};
 let me=null,ready=false,loginMsg='',unsub=null,accOpen=false;
 const fail=e=>alert('Не вдалося зберегти: '+(e.code||e.message));
 const push=(fl,u)=>updateDoc(doc(fs,'flats',fl.id),u).catch(fail);
+const pushM=fl=>updateDoc(doc(fs,'flats',fl.id),new FieldPath('months',ym),fl.months[ym]).catch(fail);
 const myMail=()=>me.email.toLowerCase();
 function accView(fl){
   const ms=fl.members||[];
@@ -183,7 +184,8 @@ app.addEventListener('change',e=>{
     const m=fl.months[ym]=fl.months[ym]||{},d=m[sv.id]=m[sv.id]||{};
     if(v==null)delete d[f];else d[f]=v;
   }
-  push(fl,f==='price'?{svcs:fl.svcs}:{["months.`"+ym+"`"]:fl.months[ym]});render();
+  if(f==='price')push(fl,{svcs:fl.svcs});else pushM(fl);
+  render();
 });
 
 app.addEventListener('click',e=>{
