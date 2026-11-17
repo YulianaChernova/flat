@@ -45,16 +45,34 @@ h3{font-size:15px;margin:18px 0 4px}
 </head>
 <body>
 <div id="app"></div>
-<script>
-const K='kvartplata_v1',app=document.getElementById('app');
-let db=null;try{db=JSON.parse(localStorage.getItem(K))}catch(e){}
-if(!db||!db.flats)db={flats:[],cur:null};
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {getFirestore,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+const fb=initializeApp({apiKey:"AIzaSyDBvPU7IJMnp7dMXsD7uFu8cU8exOpaEVM",authDomain:"kvartplata-8ca26.firebaseapp.com",projectId:"kvartplata-8ca26",storageBucket:"kvartplata-8ca26.firebasestorage.app",messagingSenderId:"888585593001",appId:"1:888585593001:web:a4cb9d0299652d8e8d09b8"});
+const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
+const db={flats:[],cur:null};
+let me=null,ready=false,loginMsg='',unsub=null;
+const fail=e=>alert('Не вдалося зберегти: '+(e.code||e.message));
+const push=(fl,u)=>updateDoc(doc(fs,'flats',fl.id),u).catch(fail);
+const myMail=()=>me.email.toLowerCase();
+function loginView(){app.innerHTML=`<h3>Квартплата</h3><div class="card"><div class="g"><label class="w">Пошта<input id="em" type="email" autocomplete="username" autocapitalize="none"></label><label class="w">Пароль<input id="pw" type="password" autocomplete="current-password"></label></div><button class="btn" data-a="login">Увійти</button><div class="warn">${esc(loginMsg)}</div></div>`}
+onAuthStateChanged(auth,u=>{
+  if(unsub){unsub();unsub=null}
+  me=u;
+  if(!u){db.flats=[];db.cur=null;ready=true;render();return}
+  unsub=onSnapshot(query(collection(fs,'flats'),where('members','array-contains',myMail())),sn=>{
+    db.flats=sn.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    if(!db.flats.some(f=>f.id===db.cur))db.cur=db.flats[0]?db.flats[0].id:null;
+    ready=true;const a=document.activeElement;
+    if(!(a&&app.contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)))render();
+  },e=>{ready=true;alert('Немає доступу до даних: '+(e.code||'')+'. Перевірте правила Firestore.');render()});
+});
 const now=new Date();let ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 const open=new Set();
 const PRE=[['Газ','meter'],['Доставка газу','vol'],['Вода','meter'],['Електроенергія','meter'],['Вивезення сміття','fix'],['Комунальні послуги','fix'],['Опалення','meter'],['Домофон','fix']];
 const TYPES={meter:'за лічильником',vol:'обсяг × тариф',fix:'фіксована сума'};
 const uid=()=>Math.random().toString(36).slice(2,9);
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n};
 const f2=n=>(Math.round(n*100)/100).toLocaleString('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -119,6 +137,8 @@ function card(fl,sv){
 const d0=v=>v?v:null;
 
 function render(){
+  if(!ready){app.innerHTML='<p class="mu">Завантаження…</p>';return}
+  if(!me){loginView();return}
   const fl=flat();
   let h=`<div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button></div>`;
   if(!fl){app.innerHTML=h+'<p class="mu">Натисніть «+ Квартира» і введіть назву та адресу.</p>';return}
@@ -131,9 +151,9 @@ function render(){
   h+=`<details${open.has('add')?' open':''} data-o="add"><summary>Додати послугу</summary><div class="g"><label>Назва<input id="ns"></label><label>Тип<select id="nt">${Object.keys(TYPES).map(t=>`<option value="${t}">${TYPES[t]}</option>`).join('')}</select></label></div><button class="btn" data-a="addsvc">Додати</button></details>`;
   const ms=Object.keys(fl.months).sort().reverse().slice(0,12);
   if(ms.length){h+='<h3>Підсумки за місяцями</h3>'+ms.map(m=>{let t=0;for(const sv of fl.svcs){const c=calc(fl,sv,m);if(c.ch!=null)t+=c.ch}return `<div class="row"><span>${label(m)}</span><span>${f2(t)} грн</span></div>`}).join('')}
-  h+=`<h3>Квартира та дані</h3><button class="btn" data-a="editflat">Змінити назву й адресу</button><button class="btn d" data-a="delflat">Видалити квартиру</button>
-  <p class="mu">Дані зберігаються на цьому телефоні. Для резервної копії або перенесення на інший телефон:</p>
-  <textarea id="bk" aria-label="Копія даних"></textarea><button class="btn" data-a="exp">Показати копію</button><button class="btn" data-a="imp">Завантажити з тексту</button>`;
+  h+=`<h3>Квартира та дані</h3><button class="btn" data-a="acc">Доступ: ${(fl.members||[]).length}</button><button class="btn" data-a="editflat">Змінити назву й адресу</button><button class="btn d" data-a="delflat">Видалити квартиру</button>
+  <p class="mu">Дані зберігаються в хмарі й однакові на всіх пристроях. Копія потрібна для резерву або для перенесення даних зі старої версії:</p>
+  <textarea id="bk" aria-label="Копія даних"></textarea><button class="btn" data-a="exp">Показати копію</button><button class="btn" data-a="imp">Завантажити з тексту</button><div><button class="btn d" data-a="out">Вийти (${esc(me.email)})</button></div>`;
   app.innerHTML=h;
 }
 
@@ -144,7 +164,7 @@ app.addEventListener('change',e=>{
   if(t.id==='mp'){if(t.value){ym=t.value;render()}return}
   if(!fl||!t.dataset.s)return;
   const sv=fl.svcs.find(s=>s.id===t.dataset.s);if(!sv)return;
-  if(t.dataset.e){sv[t.dataset.e]=t.value.trim();save();render();return}
+  if(t.dataset.e){sv[t.dataset.e]=t.value.trim();push(fl,{svcs:fl.svcs});render();return}
   const f=t.dataset.f,v=t.value.trim()===''?null:num(t.value);
   if(f==='price'){
     if(v!=null&&v!==priceOf(sv,ym)){sv.prices=sv.prices.filter(p=>p.from!==ym);sv.prices.push({from:ym,v});sv.prices.sort((a,b)=>a.from<b.from?-1:1)}
@@ -152,43 +172,50 @@ app.addEventListener('change',e=>{
     const m=fl.months[ym]=fl.months[ym]||{},d=m[sv.id]=m[sv.id]||{};
     if(v==null)delete d[f];else d[f]=v;
   }
-  save();render();
+  push(fl,f==='price'?{svcs:fl.svcs}:{["months.`"+ym+"`"]:fl.months[ym]});render();
 });
 
 app.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;
   const a=b.dataset.a,fl=flat();
-  if(a==='flat'){db.cur=b.dataset.i;save();render()}
+  if(a==='flat'){db.cur=b.dataset.i;render()}
   else if(a==='addflat'){
     const name=(prompt('Назва квартири (наприклад, Миколаїв)')||'').trim();if(!name)return;
     const addr=(prompt('Адреса')||'').trim();
     const f={id:uid(),name,addr,months:{},svcs:PRE.map(p=>({id:uid(),name:p[0],type:p[1],payee:'',acc:'',iban:'',prices:[]}))};
-    db.flats.push(f);db.cur=f.id;save();render();
+    f.members=[myMail()];f.ts=Date.now();db.flats.push(f);db.cur=f.id;setDoc(doc(fs,'flats',f.id),f).catch(fail);render();
   }
   else if(a==='pm'){ym=addM(ym,-1);render()}
   else if(a==='nm'){ym=addM(ym,1);render()}
   else if(a==='addsvc'){
     const name=document.getElementById('ns').value.trim();if(!name)return;
     fl.svcs.push({id:uid(),name,type:document.getElementById('nt').value,payee:'',acc:'',iban:'',prices:[]});
-    save();render();
+    push(fl,{svcs:fl.svcs});render();
   }
-  else if(a==='delsvc'){if(confirm('Видалити послугу та всі її дані по місяцях?')){fl.svcs=fl.svcs.filter(s=>s.id!==b.dataset.i);save();render()}}
+  else if(a==='delsvc'){if(confirm('Видалити послугу та всі її дані по місяцях?')){fl.svcs=fl.svcs.filter(s=>s.id!==b.dataset.i);push(fl,{svcs:fl.svcs});render()}}
   else if(a==='editflat'){
     const n=prompt('Назва квартири',fl.name);if(n&&n.trim())fl.name=n.trim();
     const ad=prompt('Адреса',fl.addr);if(ad!=null)fl.addr=ad.trim();
-    save();render();
+    push(fl,{name:fl.name,addr:fl.addr});render();
   }
-  else if(a==='delflat'){if(confirm('Видалити квартиру «'+fl.name+'» з усіма даними?')){db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;save();render()}}
+  else if(a==='delflat'){if(confirm('Видалити квартиру «'+fl.name+'» з усіма даними?')){deleteDoc(doc(fs,'flats',fl.id)).catch(fail);db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;render()}}
   else if(a==='exp'){const t=document.getElementById('bk');t.value=JSON.stringify(db);t.focus();t.select()}
+  else if(a==='login'){signInWithEmailAndPassword(auth,document.getElementById('em').value.trim(),document.getElementById('pw').value).catch(()=>{loginMsg='Невірна пошта або пароль';render()})}
+  else if(a==='out'){signOut(auth)}
+  else if(a==='acc'){
+    const v=prompt('Хто має доступ до квартири (пошти через кому)',(fl.members||[]).join(', '));if(v==null)return;
+    const m=[...new Set(v.split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(x=>x.includes('@')))];
+    if(!m.includes(myMail()))m.push(myMail());
+    fl.members=m;push(fl,{members:m});render();
+  }
   else if(a==='imp'){
     try{const n=JSON.parse(document.getElementById('bk').value);
       if(!n.flats)throw 0;
-      if(confirm('Замінити всі дані на цьому телефоні даними з тексту?')){db=n;save();render()}
+      if(confirm('Додати квартири з тексту в хмару?')){n.flats.forEach(f=>{f.members=[myMail()];f.ts=f.ts||Date.now();setDoc(doc(fs,'flats',f.id),f).catch(fail)})}
     }catch(x){alert('Не вдалося прочитати дані. Вставте текст копії повністю.')}
   }
 });
 
-if(!db.cur&&db.flats[0])db.cur=db.flats[0].id;
 render();
 </script>
 </body>
