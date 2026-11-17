@@ -9,8 +9,8 @@
 <meta name="theme-color" content="#0b6e8a">
 <title>Квартплата</title>
 <style>
-:root{--bg:#eaf0f5;--sf:#fff;--tx:#14213d;--mu:#5d6b82;--ac:#0b6e8a;--on:#fff;--bd:#cfd9e3;--bad:#c2410c}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1720;--sf:#192330;--tx:#e6edf5;--mu:#93a3b8;--ac:#5cc3e0;--on:#07202a;--bd:#2c3a4c;--bad:#fb923c}}
+:root{color-scheme:light;--bg:#eceedd;--sf:#f8f9ef;--tx:#2e381d;--mu:#68734f;--ac:#5a6b26;--on:#fff;--bd:#ccd2b0;--bad:#b4531a;--ok:#d6eab0;--okb:#7fa83f;--hl:#f3f4c9}
+[data-theme=dark]{color-scheme:dark;--bg:#181c10;--sf:#232a18;--tx:#e6ebd3;--mu:#9ea883;--ac:#b0c765;--on:#1a2208;--bd:#394326;--bad:#f09a5c;--ok:#34491f;--okb:#6f9a3c;--hl:#3a4222}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 12px calc(28px + env(safe-area-inset-bottom))}
 #app{max-width:560px;margin:0 auto}
@@ -29,22 +29,26 @@ body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,s
 .w{grid-column:1/-1}
 label{display:block;font-size:12px;color:var(--mu)}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);margin-top:2px}
+input.hl{border:2px solid var(--ac);background:var(--hl);font-weight:700}
+input.ok{background:var(--ok);border-color:var(--okb);font-weight:600}
 .ro{padding:8px;margin-top:2px;border-radius:8px;border:1px dashed var(--bd);font-variant-numeric:tabular-nums;min-height:38px}
 .warn{color:var(--bad);font-size:13px;margin-top:6px}
+.note{color:var(--mu);font-size:13px;margin-top:6px}
 details{margin-top:10px}
 summary{color:var(--ac);font-size:14px;padding:4px 0}
 .tot{background:var(--ac);color:var(--on);border-radius:10px;padding:14px;margin:12px 0}
-.tot div{display:flex;justify-content:space-between;gap:8px}
-.tot .big{font-size:24px;font-weight:700;margin-top:4px}
+.tot>div{display:flex;justify-content:space-between;gap:8px}
+.tot .gr{background:var(--ok);color:var(--tx);border-radius:8px;padding:8px 10px;margin:8px 0 4px;font-weight:600}
+.tot .sm{font-size:13px;opacity:.9}
+.tot .big{font-size:24px;font-weight:700;margin-top:6px}
 .btn{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:8px;padding:10px 12px;font:inherit;margin:6px 6px 0 0}
 .btn.d{color:var(--bad)}
 textarea{height:90px;font-size:13px}
 h3{font-size:15px;margin:18px 0 4px}
-.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
 .dlg{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
 .ic{border:0;background:none;font-size:20px;padding:4px 10px;color:var(--bad)}
-.row{align-items:center}
 </style>
 </head>
 <body>
@@ -55,6 +59,9 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "htt
 import {getFirestore,FieldPath,collection,doc,query,where,onSnapshot,setDoc,updateDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const fb=initializeApp({apiKey:"AIzaSyDBvPU7IJMnp7dMXsD7uFu8cU8exOpaEVM",authDomain:"kvartplata-8ca26.firebaseapp.com",projectId:"kvartplata-8ca26",storageBucket:"kvartplata-8ca26.firebasestorage.app",messagingSenderId:"888585593001",appId:"1:888585593001:web:a4cb9d0299652d8e8d09b8"});
 const auth=getAuth(fb),fs=getFirestore(fb),app=document.getElementById('app');
+const TK='kv_theme';
+const setTheme=t=>{document.documentElement.dataset.theme=t;try{localStorage.setItem(TK,t)}catch(e){}};
+{let t='light';try{t=localStorage.getItem(TK)||'light'}catch(e){}setTheme(t)}
 const db={flats:[],cur:null};
 let me=null,ready=false,loginMsg='',unsub=null,accOpen=false;
 const fail=e=>alert('Не вдалося зберегти: '+(e.code||e.message));
@@ -81,8 +88,8 @@ onAuthStateChanged(auth,u=>{
 });
 const now=new Date();let ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 const open=new Set();
-const PRE=[['Газ','meter'],['Доставка газу','vol'],['Вода','meter'],['Електроенергія','meter'],['Вивезення сміття','fix'],['Комунальні послуги','fix'],['Опалення','meter'],['Домофон','fix']];
-const TYPES={meter:'за лічильником',vol:'обсяг × тариф',fix:'фіксована сума'};
+const PRE=[['Газ','meter'],['Доставка газу','vol'],['Вода','meter'],['Електроенергія','meter'],['Вивезення сміття','fix'],['Комунальні послуги','fix'],['Опалення','man'],['Домофон','fix']];
+const TYPES={meter:'за лічильником',vol:'обсяг × тариф',fix:'фіксована сума',man:'вручну щомісяця'};
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n};
@@ -106,40 +113,47 @@ function calc(fl,sv,m){
   }else if(sv.type==='vol'){
     r.vol=d.vol!=null?d.vol:carry(fl,sv,m,'vol');
     if(r.vol!=null&&price!=null)r.ch=r.vol*price;
-  }else r.ch=price;
+  }else if(sv.type==='fix')r.ch=price;
   if(r.ch!=null)r.ch=Math.round(r.ch*100)/100;
+  r.raw=r.ch;if(d.ch!=null)r.ch=d.ch;
   r.saldo=d.saldo||0;r.paid=d.paid||0;r.rec=d.receipt;
   r.pay=Math.round(((r.ch||0)+r.saldo-r.paid)*100)/100;
   return r;
 }
 
-function field(sv,lab,f,val,ph){
-  return `<label>${lab}<input inputmode="decimal" data-s="${sv.id}" data-f="${f}" value="${esc(r5(val))}" placeholder="${ph||''}"></label>`;
+function field(sv,lab,f,val,ph,cls){
+  return `<label>${lab}<input class="${cls||''}" inputmode="decimal" data-s="${sv.id}" data-f="${f}" value="${esc(r5(val))}" placeholder="${ph||''}"></label>`;
 }
 const ro=(lab,v)=>`<label>${lab}<div class="ro">${v}</div></label>`;
 
 function card(fl,sv){
-  const c=calc(fl,sv,ym);let g='';
+  const c=calc(fl,sv,ym),d=mget(fl,sv,ym);let g='';
+  const chf=`<label>Нараховано, грн<input class="hl" inputmode="decimal" data-s="${sv.id}" data-f="ch" value="${esc(r5(c.ch))}"></label>`;
+  const pdf=field(sv,'Сплачу (з округленням), грн','paid',d0(c.paid),'',c.paid?'ok':'');
   if(sv.type==='meter'){
     g=field(sv,'Попереднє','prev',c.prev,'введіть вперше')+field(sv,'Поточне','cur',c.cur,'')
      +ro('Різниця',c.diff==null?'—':f2(c.diff))+field(sv,'Ціна, грн','price',c.price,'')
-     +field(sv,'Абонплата, грн','abon',c.abon,'0')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
+     +field(sv,'Абонплата, грн','abon',c.abon,'0')+'<div></div>';
   }else if(sv.type==='vol'){
-    g=field(sv,'Обсяг','vol',c.vol,'')+field(sv,'Тариф, грн','price',c.price,'')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
-  }else{
-    g=field(sv,'Сума, грн','price',c.price,'')+ro('Нараховано, грн',c.ch==null?'—':f2(c.ch));
+    g=field(sv,'Обсяг','vol',c.vol,'')+field(sv,'Тариф, грн','price',c.price,'');
+  }else if(sv.type==='fix'){
+    g=field(sv,'Сума, грн','price',c.price,'')+'<div></div>';
   }
+  g+=chf+pdf;
   let w='';
   if(c.diff!=null&&c.diff<0)w+='<div class="warn">Поточне показання менше за попереднє</div>';
   if(sv.type==='meter'&&c.cur!=null&&c.prev==null)w+='<div class="warn">Перший місяць: введіть попереднє показання</div>';
-  if(c.rec!=null&&c.ch!=null&&Math.abs(c.rec-c.ch)>0.01)w+=`<div class="warn">Розбіжність із квитанцією: ${f2(c.rec-c.ch)} грн</div>`;
+  if(d.ch!=null&&c.raw!=null&&Math.abs(d.ch-c.raw)>0.004)w+=`<div class="note">Змінено вручну (за розрахунком ${f2(c.raw)} грн)</div>`;
+  const base=c.raw!=null?c.raw:c.ch;
+  if(c.rec!=null&&base!=null&&Math.abs(c.rec-base)>0.01)w+=`<div class="warn">Розбіжність із квитанцією: ${f2(c.rec-base)} грн</div>`;
+  if(c.paid&&c.ch!=null&&Math.abs(c.paid-c.ch)>0.004)w+=`<div class="note">Округлення: ${c.paid-c.ch>0?'+':''}${f2(c.paid-c.ch)} грн</div>`;
   const sel=Object.keys(TYPES).map(t=>`<option value="${t}"${t===sv.type?' selected':''}>${TYPES[t]}</option>`).join('');
   const ed=(lab,f)=>`<label class="w">${lab}<input data-e="${f}" data-s="${sv.id}" value="${esc(sv[f])}"></label>`;
-  return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="sum">${c.ch==null?'—':f2(c.pay)}</span></div>
+  return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="sum">${c.ch==null?'—':f2(c.ch)}</span></div>
   <div class="g">${g}</div>${w}
-  <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Борг, оплата, звірка, реквізити</summary>
-  <div class="g">${field(sv,'Залишок (борг +, переплата −)','saldo',d0(c.saldo),'0')}${field(sv,'Сплачено, грн','paid',d0(c.paid),'0')}
-  ${field(sv,'За квитанцією, грн','receipt',c.rec,'')}${ro('До сплати, грн',f2(c.pay))}
+  <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Борг, звірка, реквізити</summary>
+  <div class="g">${field(sv,'Залишок (борг +, переплата −)','saldo',d0(c.saldo),'0')}${field(sv,'За квитанцією, грн','receipt',c.rec,'')}
+  ${ro('До сплати, грн',f2(c.pay))}
   <label class="w">Назва послуги<input data-e="name" data-s="${sv.id}" value="${esc(sv.name)}"></label>
   <label class="w">Тип<select data-e="type" data-s="${sv.id}">${sel}</select></label>
   ${ed('Отримувач','payee')}${ed('Особовий рахунок','acc')}${ed('IBAN','iban')}</div>
@@ -151,14 +165,14 @@ function render(){
   if(!ready){app.innerHTML='<p class="mu">Завантаження…</p>';return}
   if(!me){loginView();return}
   const fl=flat();
-  let h=`<div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button></div>`;
+  let h=`<div class="tabs">${db.flats.map(f=>`<button class="tab${f.id===db.cur?' on':''}" data-a="flat" data-i="${f.id}">${esc(f.name)}</button>`).join('')}<button class="tab" data-a="addflat">+ Квартира</button><button class="tab" data-a="theme" aria-label="Тема">◐</button></div>`;
   if(!fl){app.innerHTML=h+'<p class="mu">Натисніть «+ Квартира» і введіть назву та адресу.</p>';return}
   h+=`<div class="mu">${esc(fl.addr)}</div>
   <div class="mn"><button data-a="pm" aria-label="Попередній місяць">‹</button><input type="month" id="mp" value="${ym}" aria-label="Місяць"><button data-a="nm" aria-label="Наступний місяць">›</button></div>
   <div class="mu" style="text-align:center">${label(ym)}</div>`;
-  let sc=0,sp=0;
-  for(const sv of fl.svcs){const c=calc(fl,sv,ym);if(c.ch!=null)sc+=c.ch;sp+=c.pay;h+=card(fl,sv)}
-  h+=`<div class="tot"><div><span>Нараховано за місяць</span><span>${f2(sc)} грн</span></div><div class="big"><span>До сплати</span><span>${f2(sp)} грн</span></div></div>`;
+  let sc=0,sp=0,sd=0,sr=0;
+  for(const sv of fl.svcs){const c=calc(fl,sv,ym);if(c.ch!=null)sc+=c.ch;sp+=c.pay;sd+=c.paid;if(c.paid&&c.ch!=null)sr+=c.paid-c.ch;h+=card(fl,sv)}
+  h+=`<div class="tot"><div><span>Нараховано за місяць</span><span>${f2(sc)} грн</span></div><div class="gr"><span>Сплачу (мої суми)</span><span>${f2(sd)} грн</span></div>${sd?`<div class="sm"><span>Округлення (сплачу − нараховано)</span><span>${sr>0?'+':''}${f2(sr)} грн</span></div>`:''}<div class="big"><span>До сплати</span><span>${f2(sp)} грн</span></div></div>`;
   h+=`<details${open.has('add')?' open':''} data-o="add"><summary>Додати послугу</summary><div class="g"><label>Назва<input id="ns"></label><label>Тип<select id="nt">${Object.keys(TYPES).map(t=>`<option value="${t}">${TYPES[t]}</option>`).join('')}</select></label></div><button class="btn" data-a="addsvc">Додати</button></details>`;
   const ms=Object.keys(fl.months).sort().reverse().slice(0,12);
   if(ms.length){h+='<h3>Підсумки за місяцями</h3>'+ms.map(m=>{let t=0;for(const sv of fl.svcs){const c=calc(fl,sv,m);if(c.ch!=null)t+=c.ch}return `<div class="row"><span>${label(m)}</span><span>${f2(t)} грн</span></div>`}).join('')}
@@ -177,7 +191,8 @@ app.addEventListener('change',e=>{
   if(!fl||!t.dataset.s)return;
   const sv=fl.svcs.find(s=>s.id===t.dataset.s);if(!sv)return;
   if(t.dataset.e){sv[t.dataset.e]=t.value.trim();push(fl,{svcs:fl.svcs});render();return}
-  const f=t.dataset.f,v=t.value.trim()===''?null:num(t.value);
+  const f=t.dataset.f;let v=t.value.trim()===''?null:num(t.value);
+  if(f==='ch'&&v!=null){const r=calc(fl,sv,ym);if(r.raw!=null&&Math.abs(v-r.raw)<0.005)v=null}
   if(f==='price'){
     if(v!=null&&v!==priceOf(sv,ym)){sv.prices=sv.prices.filter(p=>p.from!==ym);sv.prices.push({from:ym,v});sv.prices.sort((a,b)=>a.from<b.from?-1:1)}
   }else{
@@ -213,6 +228,7 @@ app.addEventListener('click',e=>{
   }
   else if(a==='delflat'){if(confirm('Видалити квартиру «'+fl.name+'» з усіма даними?')){deleteDoc(doc(fs,'flats',fl.id)).catch(fail);db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;render()}}
   else if(a==='exp'){const t=document.getElementById('bk');t.value=JSON.stringify(db);t.focus();t.select()}
+  else if(a==='theme'){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
   else if(a==='login'){signInWithEmailAndPassword(auth,document.getElementById('em').value.trim(),document.getElementById('pw').value).catch(()=>{loginMsg='Невірна пошта або пароль';render()})}
   else if(a==='out'){signOut(auth)}
   else if(a==='acc'){accOpen=true;render()}
