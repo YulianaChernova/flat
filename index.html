@@ -63,6 +63,7 @@ h3{font-size:15px;margin:18px 0 4px}
 .stk span{display:flex;flex-direction:column;align-items:center;line-height:1.25;text-align:center}
 .stk small{color:var(--mu);font-size:12px}
 .stk button{width:42px;height:38px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:8px;font-size:18px}
+.chg{border:2px solid var(--bad)}
 </style>
 </head>
 <body>
@@ -136,8 +137,13 @@ function calc(fl,sv,m){
   if(sv.type==='meter'){
     r.prev=d.prev!=null?d.prev:carry(fl,sv,m,'cur');
     r.abon=d.abon!=null?d.abon:(carry(fl,sv,m,'abon')||0);
-    if(r.prev!=null&&r.cur!=null)r.diff=r.cur-r.prev;
-    if(r.diff!=null&&price!=null)r.ch=r.diff*price+r.abon;
+    if(r.prev!=null&&r.cur!=null)r.diff=Math.round((r.cur-r.prev)*1000)/1000;
+    if(sv.lines&&sv.lines.length){
+      r.lines=sv.lines.map(l=>{const pr=priceOf(l,m);let amt=null;
+        if(l.kind==='fix')amt=pr;else if(r.diff!=null&&pr!=null)amt=Math.round(r.diff*pr*100)/100;
+        return {l,pr,amt}});
+      if(r.diff!=null)r.ch=r.lines.reduce((t,x)=>t+(x.amt||0),0);
+    }else if(r.diff!=null&&price!=null)r.ch=r.diff*price+r.abon;
   }else if(sv.type==='vol'){
     r.vol=d.vol!=null?d.vol:carry(fl,sv,m,'vol');
     if(r.vol!=null&&price!=null)r.ch=r.vol*price;
@@ -154,6 +160,11 @@ function field(sv,lab,f,val,ph,cls){
 }
 const ro=(lab,v)=>`<label>${lab}<div class="ro">${v}</div></label>`;
 
+const lineRow=(sv,x)=>{
+  const pp=priceOf(x.l,addM(ym,-1)),chg=pp!=null&&x.pr!=null&&pp!==x.pr;
+  const lab=esc(x.l.name)+(x.l.kind==='fix'?', грн':', грн/м³')+(chg?' · було '+r5(pp):'');
+  return `<label>${lab}<input class="${chg?'chg':''}" inputmode="decimal" data-s="${sv.id}" data-l="${x.l.id}" data-f="lprice" value="${esc(r5(x.pr))}"></label>`+ro('Сума, грн',x.amt==null?'—':f2(x.amt));
+};
 function card(fl,sv){
   const c=calc(fl,sv,ym),d=mget(fl,sv,ym);let g='';
   const ix=fl.svcs.indexOf(sv),last=fl.svcs.length-1;
@@ -161,8 +172,7 @@ function card(fl,sv){
   const pdf=field(sv,'Сплачу (з округленням), грн','paid',d0(c.paid),'',c.paid?'ok':'');
   if(sv.type==='meter'){
     g=field(sv,'Попереднє','prev',c.prev,'введіть вперше')+field(sv,'Поточне','cur',c.cur,'')
-     +ro('Різниця',c.diff==null?'—':f2(c.diff))+field(sv,'Ціна, грн','price',c.price,'')
-     +field(sv,'Абонплата, грн','abon',c.abon,'0')+'<div></div>';
+     +ro('Різниця',c.diff==null?'—':f2(c.diff))+(c.lines?'<div></div>'+c.lines.map(x=>lineRow(sv,x)).join(''):field(sv,'Ціна, грн','price',c.price,'')+field(sv,'Абонплата, грн','abon',c.abon,'0')+'<div></div>');
   }else if(sv.type==='vol'){
     g=field(sv,'Обсяг','vol',c.vol,'')+field(sv,'Тариф, грн','price',c.price,'');
   }else if(sv.type==='fix'){
@@ -178,6 +188,7 @@ function card(fl,sv){
   if(c.paid&&c.ch!=null&&Math.abs(c.paid-c.ch)>0.004)w+=`<div class="note">Округлення: ${c.paid-c.ch>0?'+':''}${f2(c.paid-c.ch)} грн</div>`;
   const sel=Object.keys(TYPES).map(t=>`<option value="${t}"${t===sv.type?' selected':''}>${TYPES[t]}</option>`).join('');
   const ed=(lab,f)=>`<label class="w">${lab}<input data-e="${f}" data-s="${sv.id}" value="${esc(sv[f])}"></label>`;
+  const linesEd=sv.type==='meter'?`<div class="w" style="margin-top:10px"><label>Рядки нарахування за лічильником (як у квитанції)</label>${(sv.lines||[]).map(l=>`<div class="row"><input data-ln="${l.id}" data-s="${sv.id}" value="${esc(l.name)}" style="flex:1;min-width:0"><span class="mu" style="padding:0 6px">${l.kind==='fix'?'фікс.':'за м³'}</span><button class="ic" data-a="dline" data-s="${sv.id}" data-i="${l.id}" aria-label="Видалити">🗑</button></div>`).join('')}<div class="g"><label>Нова назва<input id="nl-${sv.id}"></label><label>Тип<select id="nk-${sv.id}"><option value="rate">за м³ × ціна</option><option value="fix">фіксована сума</option></select></label></div><button class="btn" data-a="aline" data-i="${sv.id}">+ Додати рядок</button><button class="btn" data-a="wpreset" data-i="${sv.id}">Вода + водовідведення + 2 абонплати</button></div>`:'';
   return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="mv"><button data-a="up" data-i="${sv.id}" aria-label="Вище"${ix===0?' disabled':''}>▲</button><button data-a="dn" data-i="${sv.id}" aria-label="Нижче"${ix===last?' disabled':''}>▼</button></span><span class="sum">${c.ch==null?'—':f2(c.ch)}</span></div>
   <div class="g">${g}</div>${w}
   <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Борг, звірка, реквізити</summary>
@@ -186,7 +197,7 @@ function card(fl,sv){
   <label class="w">Назва послуги<input data-e="name" data-s="${sv.id}" value="${esc(sv.name)}"></label>
   <label class="w">Тип<select data-e="type" data-s="${sv.id}">${sel}</select></label>
   ${ed('Отримувач','payee')}${ed('Особовий рахунок','acc')}${ed('IBAN','iban')}</div>
-  <button class="btn d" data-a="delsvc" data-i="${sv.id}">Видалити послугу</button></details></div>`;
+  ${linesEd}<button class="btn d" data-a="delsvc" data-i="${sv.id}">Видалити послугу</button></details></div>`;
 }
 const d0=v=>v?v:null;
 
@@ -219,16 +230,18 @@ app.addEventListener('change',e=>{
   if(t.id==='mp'){if(t.value){ym=t.value;render()}return}
   if(!fl||!t.dataset.s)return;
   const sv=fl.svcs.find(s=>s.id===t.dataset.s);if(!sv)return;
+  if(t.dataset.ln){const l=(sv.lines||[]).find(x=>x.id===t.dataset.ln);if(l&&t.value.trim())l.name=t.value.trim();push(fl,{svcs:fl.svcs});render();return}
   if(t.dataset.e){sv[t.dataset.e]=t.value.trim();push(fl,{svcs:fl.svcs});render();return}
   const f=t.dataset.f;let v=t.value.trim()===''?null:num(t.value);
   if(f==='ch'&&v!=null){const r=calc(fl,sv,ym);if(r.raw!=null&&Math.abs(v-r.raw)<0.005)v=null}
-  if(f==='price'){
-    if(v!=null&&v!==priceOf(sv,ym)){sv.prices=sv.prices.filter(p=>p.from!==ym);sv.prices.push({from:ym,v});sv.prices.sort((a,b)=>a.from<b.from?-1:1)}
+  if(f==='price'||f==='lprice'){
+    const tg=f==='lprice'?(sv.lines||[]).find(x=>x.id===t.dataset.l):sv;
+    if(tg&&v!=null&&v!==priceOf(tg,ym)){tg.prices=tg.prices.filter(p=>p.from!==ym);tg.prices.push({from:ym,v});tg.prices.sort((a,b)=>a.from<b.from?-1:1)}
   }else{
     const m=fl.months[ym]=fl.months[ym]||{},d=m[sv.id]=m[sv.id]||{};
     if(v==null)delete d[f];else d[f]=v;
   }
-  if(f==='price')push(fl,{svcs:fl.svcs});else pushM(fl);
+  if(f==='price'||f==='lprice')push(fl,{svcs:fl.svcs});else pushM(fl);
   render();
 });
 
@@ -263,6 +276,22 @@ app.addEventListener('click',e=>{
     [fl.svcs[i],fl.svcs[j]]=[fl.svcs[j],fl.svcs[i]];
     push(fl,{svcs:fl.svcs});render();
     const el=app.querySelector('[data-a="'+a+'"][data-i="'+b.dataset.i+'"]');if(el)el.scrollIntoView({block:'center'});
+  }
+  else if(a==='aline'){
+    const sv=fl.svcs.find(x=>x.id===b.dataset.i),name=document.getElementById('nl-'+sv.id).value.trim();
+    if(!name)return;
+    sv.lines=[...(sv.lines||[]),{id:uid(),name,kind:document.getElementById('nk-'+sv.id).value,prices:[]}];
+    push(fl,{svcs:fl.svcs});render();
+  }
+  else if(a==='dline'){
+    const sv=fl.svcs.find(x=>x.id===b.dataset.s);
+    if(confirm('Видалити цей рядок?')){sv.lines=(sv.lines||[]).filter(l=>l.id!==b.dataset.i);push(fl,{svcs:fl.svcs});render()}
+  }
+  else if(a==='wpreset'){
+    const sv=fl.svcs.find(x=>x.id===b.dataset.i);
+    if(sv.lines&&sv.lines.length&&!confirm('Замінити поточні рядки набором для води?'))return;
+    sv.lines=[['Холодна вода','rate'],['Водовідведення','rate'],['Абон. обслуг. (ХВ)','fix'],['Абон. обслуг. (ВВ)','fix']].map(x=>({id:uid(),name:x[0],kind:x[1],prices:[]}));
+    push(fl,{svcs:fl.svcs});render();
   }
   else if(a==='theme'){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
   else if(a==='login'){signInWithEmailAndPassword(auth,document.getElementById('em').value.trim(),document.getElementById('pw').value).catch(()=>{loginMsg='Невірна пошта або пароль';render()})}
