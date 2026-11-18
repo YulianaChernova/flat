@@ -55,6 +55,10 @@ h3{font-size:15px;margin:18px 0 4px}
 .hd>*:not(.deco){position:relative;z-index:1}
 .deco{position:absolute;inset:-10%;z-index:0;font-size:26px;line-height:1.6;letter-spacing:12px;opacity:.3;overflow:hidden;pointer-events:none;user-select:none;word-break:break-all;transform:rotate(-6deg)}
 .pill{display:inline-block;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:2px 10px;margin:4px 0}
+.ch b{flex:1}
+.mv{display:flex;align-items:center;margin-right:6px}
+.mv button{border:1px solid var(--bd);background:var(--bg);color:var(--mu);border-radius:6px;width:36px;height:32px;margin-left:4px;font-size:13px}
+.mv button:disabled{opacity:.3}
 </style>
 </head>
 <body>
@@ -147,6 +151,7 @@ const ro=(lab,v)=>`<label>${lab}<div class="ro">${v}</div></label>`;
 
 function card(fl,sv){
   const c=calc(fl,sv,ym),d=mget(fl,sv,ym);let g='';
+  const ix=fl.svcs.indexOf(sv),last=fl.svcs.length-1;
   const chf=`<label>Нараховано, грн<input class="hl" inputmode="decimal" data-s="${sv.id}" data-f="ch" value="${esc(r5(c.ch))}"></label>`;
   const pdf=field(sv,'Сплачу (з округленням), грн','paid',d0(c.paid),'',c.paid?'ok':'');
   if(sv.type==='meter'){
@@ -168,7 +173,7 @@ function card(fl,sv){
   if(c.paid&&c.ch!=null&&Math.abs(c.paid-c.ch)>0.004)w+=`<div class="note">Округлення: ${c.paid-c.ch>0?'+':''}${f2(c.paid-c.ch)} грн</div>`;
   const sel=Object.keys(TYPES).map(t=>`<option value="${t}"${t===sv.type?' selected':''}>${TYPES[t]}</option>`).join('');
   const ed=(lab,f)=>`<label class="w">${lab}<input data-e="${f}" data-s="${sv.id}" value="${esc(sv[f])}"></label>`;
-  return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="sum">${c.ch==null?'—':f2(c.ch)}</span></div>
+  return `<div class="card"><div class="ch"><b>${esc(sv.name)}</b><span class="mv"><button data-a="up" data-i="${sv.id}" aria-label="Вище"${ix===0?' disabled':''}>▲</button><button data-a="dn" data-i="${sv.id}" aria-label="Нижче"${ix===last?' disabled':''}>▼</button></span><span class="sum">${c.ch==null?'—':f2(c.ch)}</span></div>
   <div class="g">${g}</div>${w}
   <details data-o="${sv.id}"${open.has(sv.id)?' open':''}><summary>Борг, звірка, реквізити</summary>
   <div class="g">${field(sv,'Залишок (борг +, переплата −)','saldo',d0(c.saldo),'0')}${field(sv,'За квитанцією, грн','receipt',c.rec,'')}
@@ -247,6 +252,13 @@ app.addEventListener('click',e=>{
   }
   else if(a==='delflat'){if(confirm('Видалити квартиру «'+fl.name+'» з усіма даними?')){deleteDoc(doc(fs,'flats',fl.id)).catch(fail);db.flats=db.flats.filter(f=>f.id!==fl.id);db.cur=db.flats[0]?db.flats[0].id:null;render()}}
   else if(a==='exp'){const t=document.getElementById('bk');t.value=JSON.stringify(db);t.focus();t.select()}
+  else if(a==='up'||a==='dn'){
+    const i=fl.svcs.findIndex(x=>x.id===b.dataset.i),j=a==='up'?i-1:i+1;
+    if(i<0||j<0||j>=fl.svcs.length)return;
+    [fl.svcs[i],fl.svcs[j]]=[fl.svcs[j],fl.svcs[i]];
+    push(fl,{svcs:fl.svcs});render();
+    const el=app.querySelector('[data-a="'+a+'"][data-i="'+b.dataset.i+'"]');if(el)el.scrollIntoView({block:'center'});
+  }
   else if(a==='theme'){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
   else if(a==='login'){signInWithEmailAndPassword(auth,document.getElementById('em').value.trim(),document.getElementById('pw').value).catch(()=>{loginMsg='Невірна пошта або пароль';render()})}
   else if(a==='out'){signOut(auth)}
